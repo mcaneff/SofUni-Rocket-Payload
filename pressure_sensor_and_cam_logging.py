@@ -2,28 +2,38 @@ import time
 import board
 import busio
 from adafruit_bme280 import basic as adafruit_bme280
+from picamera2 import Picamera2
 
-# I2C setup
+
 i2c = busio.I2C(board.SCL, board.SDA)
 
 # Two sensors at different addresses
 bme1 = adafruit_bme280.Adafruit_BME280_I2C(i2c, address=0x76)
 bme2 = adafruit_bme280.Adafruit_BME280_I2C(i2c, address=0x77)
 
-# Fastest mode
+# Fastest mode (lowest oversampling, no filter)
 for b in (bme1, bme2):
     b.overscan_pressure = 1
     b.overscan_temperature = 1
     b.overscan_humidity = 1
     b.filter = 0
 
+
+picam2 = Picamera2()
+video_config = picam2.create_video_configuration(
+    main={"size": (1920, 1080)},      # resolution
+    controls={"FrameRate": 30}        # frame rate
+)
+picam2.configure(video_config)
+picam2.start_recording("output_video.mp4")
+
+
 with open("bme280_dual_log.csv", "w") as f:
-    # Header row
     f.write("timestamp,"
             "tempC_1,pressure_hPa_1,humidity_pct_1,alt_m_1,"
             "tempC_2,pressure_hPa_2,humidity_pct_2,alt_m_2\n")
 
-    print("Logging merged sensor data... (Ctrl+C to stop)")
+    print("Logging merged sensor data + recording video... (Ctrl+C to stop)")
     count = 0
     start_time = time.perf_counter()
 
@@ -54,3 +64,6 @@ with open("bme280_dual_log.csv", "w") as f:
     except KeyboardInterrupt:
         elapsed = time.perf_counter() - start_time
         print(f"\nStopped. Rows collected: {count}, duration: {elapsed:.2f}s")
+
+    finally:
+        picam2.stop_recording()
