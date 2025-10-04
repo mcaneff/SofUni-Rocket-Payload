@@ -7,14 +7,6 @@ i2c = busio.I2C(board.SCL, board.SDA)
 bme = adafruit_bme280.Adafruit_BME280_I2C(i2c, address=0x76)
 bme.sea_level_pressure = 1013.25
 
-def init_sensor():
-     try:
-          i2c = busio.I2C(board.SCL, board.SDA)
-          bme = adafruit_bme280.Adafruit_BME280_I2C(i2c, address=0x76)
-          bme.sea_level_pressure = 1013.25
-          if bme.temperature is not None: return True
-     except:
-          return False
 
 def run_sensor():
      while True:

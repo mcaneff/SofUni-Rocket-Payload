@@ -5,6 +5,7 @@ class State(Enum):
     BOOT = auto()
     PRIMED = auto()
     RECORDING = auto()
+    DEGRADED = auto()
     TOUCHDOWN = auto()
     FAIL = auto()
 
