@@ -2,9 +2,12 @@ import multiprocessing as mp
 import bne_sensor, both_sensors
 from fsm import State, Event, next_state
 from gpiozero import Button
+import time
+
 
 # Setup GPIO16 as input (BCM numbering)
 go_signal = Button(17, pull_up=False, bounce_time=0.05)
+countDownTime = 5 # Time to wait until start
 
 def init_and_check_sensors(state):
      if both_sensors.init_sensor():
@@ -19,14 +22,18 @@ def main():
      state = State.BOOT
      procs = []
      print(f"State: {state}")
-
+     t0 = time.monotonic()
+     print(f"Current Time: {t0}")
      running = True
+
      while running:
           if state == State.BOOT:
                state = init_and_check_sensors(state)
           
           elif state == State.PRIMED:
-
+               if time.monotonic() >= t0 + countDownTime:
+                    state = next_state(state, Event.START_RECORDING)
+                    print("Time Begin Recording")
                if go_signal.is_pressed:  # HIGH detected
                     print("GO signal received → Recording")
                     state = next_state(state, Event.START_RECORDING)
@@ -35,7 +42,7 @@ def main():
                if not procs:
                     event_q = mp.Queue()
                     procs.append(mp.Process(target=bne_sensor.dummy_print ))
-                    procs.append(mp.Process(target=both_sensors.run_sensor))
+                    procs.append(mp.Process(target=both_sensors.run_sensor , args = (t0,)))
                     for p in procs:
                          p.start()
                     print("Processes started")
