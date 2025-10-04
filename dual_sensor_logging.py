@@ -11,10 +11,11 @@ def init_sensor():
           
           # Fastest mode for both sensors
           for b in (bme1, bme2):
-               b.overscan_pressure = 1
-               b.overscan_temperature = 1
-               b.overscan_humidity = 1
-               b.filter = 0
+               b.overscan_pressure = 1     # lowest oversampling
+               # b.overscan_temperature = 0  # disable temp
+               # b.overscan_humidity = 0     # disable humidity
+               b.filter = 0                # no IIR filter
+
           
           return (bme1, bme2)
      except Exception as e:
@@ -32,8 +33,8 @@ def run_sensor(T0, event_q=None):
           # Fastest mode for both sensors
           for b in (bme1, bme2):
                b.overscan_pressure = 1
-               b.overscan_temperature = 1
-               b.overscan_humidity = 1
+               # b.overscan_temperature = 1
+               # b.overscan_humidity = 1
                b.filter = 0
           
           # Open CSV file for logging
@@ -45,31 +46,31 @@ def run_sensor(T0, event_q=None):
                
                count = 0
                
+               buffer = []
+               count = 0
+
                while True:
                     elapsed = time.monotonic() - T0
-                    
-                    # Read Sensor 1
-                    t1 = bme1.temperature
+
+                    # Read pressure only (fastest possible)
                     p1 = bme1.pressure
-                    h1 = bme1.humidity
-                    a1 = bme1.altitude
-                    
-                    # Read Sensor 2
-                    t2 = bme2.temperature
                     p2 = bme2.pressure
-                    h2 = bme2.humidity
-                    a2 = bme2.altitude
-                    
-                    # Write to CSV
-                    f.write(f"{elapsed:.6f},"
-                         f"{t1:.2f},{p1:.2f},{h1:.2f},{a1:.2f},"
-                         f"{t2:.2f},{p2:.2f},{h2:.2f},{a2:.2f}\n")
-                    
+
+                    # Build CSV line
+                    line = f"{elapsed:.6f},{p1:.2f},{p2:.2f}\n"
+                    buffer.append(line)
+
                     count += 1
-                    
-                    # Flush every 200 readings for data safety
+
+                    # Print heartbeat every 200 samples
                     if count % 200 == 0:
+                         print(f"T+{elapsed:.1f}s | Samples: {count}")
+
+                    # Flush to disk every 500 samples
+                    if len(buffer) >= 500:
+                         f.writelines(buffer)
                          f.flush()
+                         buffer.clear()
 
      except Exception as e:
           print(f"Sensor error: {e}")
