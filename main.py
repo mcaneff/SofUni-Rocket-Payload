@@ -1,6 +1,10 @@
 import multiprocessing as mp
 import bne_sensor, both_sensors
 from fsm import State, Event, next_state
+from gpiozero import Button
+
+# Setup GPIO16 as input (BCM numbering)
+go_signal = Button(17, pull_up=False, bounce_time=0.05)
 
 def init_and_check_sensors(state):
      if both_sensors.init_sensor():
@@ -22,14 +26,15 @@ def main():
                state = init_and_check_sensors(state)
           
           elif state == State.PRIMED:
-               # Add a start mission condition some T - 10 second time condition
-               state = next_state(state, Event.START_RECORDING)
-               print("→", state)
+
+               if go_signal.is_pressed:  # HIGH detected
+                    print("GO signal received → Recording")
+                    state = next_state(state, Event.START_RECORDING)
 
           elif state == State.RECORDING:
                if not procs:
                     event_q = mp.Queue()
-                    procs.append(mp.Process(target=bne_sensor.dummy_print , args = (event_q,) ))
+                    procs.append(mp.Process(target=bne_sensor.dummy_print ))
                     procs.append(mp.Process(target=both_sensors.run_sensor))
                     for p in procs:
                          p.start()
@@ -38,8 +43,9 @@ def main():
                try:
                     all_alive = all(p.is_alive() for p in procs)
                     if not all_alive:
+                         val =1
                          # state = next_state(state, Event.ERROR)
-                         print("Process died →", state)
+                         # print("Process died →", state)
                except KeyboardInterrupt:
                     print("Stopping...")
                     for p in procs:

@@ -17,8 +17,11 @@ def init_sensor():
 
 def run_sensor(event_q=None):
      try:
-          if event_q:
-               event_q.put("SENSOR_READY")
+          i2c = busio.I2C(board.SCL, board.SDA)
+          bme1 = adafruit_bme280.Adafruit_BME280_I2C(i2c, address=0x76)
+          bme2 = adafruit_bme280.Adafruit_BME280_I2C(i2c, address=0x77)
+          # if event_q:
+          #      event_q.put("SENSOR_READY")
 
           while True:
                print("BME1                  BME2")
