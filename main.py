@@ -6,12 +6,13 @@ from gpiozero import Button
 import time
 
 
-# Setup GPIO16 as input (BCM numbering)
+# Setup GPIO17 as input (BCM numbering)
 go_signal = Button(17, pull_up=False, bounce_time=0.05)
 countDownTime = 1 # Time to wait until start sec)
 
 def init_and_check_sensors(state):
-     if dual_sensor_logging.init_sensor():
+     sensors = dual_sensor_logging.init_sensor()
+     if sensors is not None:
           state = next_state(state, Event.INIT_DONE)
           print("Sensor alive →", state)
      else:

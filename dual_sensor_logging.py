@@ -13,14 +13,35 @@ def init_sensor():
           # Fastest mode for both sensors
           for b in (bme1, bme2):
                b.mode = adafruit_bme280.MODE_FORCE
-               b.overscan_pressure = 1     # lowest oversampling
-               # b.overscan_temperature = 0  # disable temp
-               # b.overscan_humidity = 0     # disable humidity
-               b.filter = 0                # no IIR filter
-
-          return (bme1, bme2)
+               b.overscan_pressure = 1
+               b.filter = 0
+          
+          # Read baseline environmental conditions
+          time.sleep(0.1)  # Allow sensors to stabilize
+          t1, t2 = bme1.temperature, bme2.temperature
+          p1, p2 = bme1.pressure, bme2.pressure
+          h1, h2 = bme1.humidity, bme2.humidity
+          
+          # Create/overwrite CSV with header and baseline data
+          with open("bme280_flight_log.csv", "w") as f:
+               f.write("elapsed_time,pressure_hPa_1,pressure_hPa_2,tempC_1,tempC_2,humidity_1,humidity_2\n")
+               f.write(f"0.000000,{p1:.3f},{p2:.3f},{t1:.2f},{t2:.2f},{h1:.2f},{h2:.2f}\n")
+          
+          print(f"Baseline recorded: T1={t1:.2f}°C T2={t2:.2f}°C H1={h1:.2f}% H2={h2:.2f}%")
+          
+          # Gracefully close I2C to free resources
+          i2c.deinit()
+          print("I2C closed, resources freed")
+          
+          return (bme1, bme2)  # Return tuple to signal success (sensors no longer usable)
+          
      except Exception as e:
           print("Sensor init failed:", e)
+          if i2c:
+               try:
+                    i2c.deinit()
+               except:
+                    pass
           return None
 
 
@@ -34,18 +55,11 @@ def run_sensor(T0, event_q=None):
           # Fastest mode for both sensors
           for b in (bme1, bme2):
                b.mode = adafruit_bme280.MODE_FORCE
-               b.overscan_pressure = 1
-               # b.overscan_temperature = 1
-               # b.overscan_humidity = 1
-               b.filter = 0
+               b.overscan_pressure = 1  # Minimum oversampling for speed
+               b.filter = 0              # No filtering for speed
           
-          # Open CSV file for logging
-          with open("bme280_flight_log.csv", "w") as f:
-               # Write header
-               f.write("elapsed_time,"
-                    "tempC_1, pressure_hPa_1, humidity_pct_1, alt_m_1,"
-                    "tempC_2, pressure_hPa_2, humidity_pct_2, alt_m_2\n")
-               
+          # Append to existing CSV file (baseline already written by init_sensor)
+          with open("bme280_flight_log.csv", "a") as f:
                count = 0
                buffer = []
 
@@ -57,7 +71,7 @@ def run_sensor(T0, event_q=None):
                     p2 = bme2.pressure
 
                     # Build CSV line
-                    line = f"{elapsed:.6f},{p1:.2f},{p2:.2f}\n"
+                    line = f"{elapsed:.6f},{p1:.3f},{p2:.3f},,,\n"
                     buffer.append(line)
 
                     count += 1
