@@ -1,7 +1,8 @@
 import time
 import board
 import busio
-from adafruit_bme280 import basic as adafruit_bme280
+import adafruit_bme280.advanced as adafruit_bme280
+
 
 def init_sensor():
      try:
@@ -11,12 +12,12 @@ def init_sensor():
           
           # Fastest mode for both sensors
           for b in (bme1, bme2):
+               b.mode = adafruit_bme280.MODE_FORCE
                b.overscan_pressure = 1     # lowest oversampling
                # b.overscan_temperature = 0  # disable temp
                # b.overscan_humidity = 0     # disable humidity
                b.filter = 0                # no IIR filter
 
-          
           return (bme1, bme2)
      except Exception as e:
           print("Sensor init failed:", e)
@@ -32,6 +33,7 @@ def run_sensor(T0, event_q=None):
           
           # Fastest mode for both sensors
           for b in (bme1, bme2):
+               b.mode = adafruit_bme280.MODE_FORCE
                b.overscan_pressure = 1
                # b.overscan_temperature = 1
                # b.overscan_humidity = 1
@@ -41,13 +43,11 @@ def run_sensor(T0, event_q=None):
           with open("bme280_flight_log.csv", "w") as f:
                # Write header
                f.write("elapsed_time,"
-                    "tempC_1,pressure_hPa_1,humidity_pct_1,alt_m_1,"
-                    "tempC_2,pressure_hPa_2,humidity_pct_2,alt_m_2\n")
+                    "tempC_1, pressure_hPa_1, humidity_pct_1, alt_m_1,"
+                    "tempC_2, pressure_hPa_2, humidity_pct_2, alt_m_2\n")
                
                count = 0
-               
                buffer = []
-               count = 0
 
                while True:
                     elapsed = time.monotonic() - T0
