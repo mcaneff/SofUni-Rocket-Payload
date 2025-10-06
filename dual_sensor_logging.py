@@ -2,6 +2,10 @@ import time
 import board
 import busio
 import adafruit_bme280.advanced as adafruit_bme280
+from datetime import datetime
+
+# Generate unique filename with timestamp
+FLIGHT_LOG_FILE = f"bme280_flight_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
 
 
 def init_sensor():
@@ -23,11 +27,12 @@ def init_sensor():
           h1, h2 = bme1.humidity, bme2.humidity
           
           # Create/overwrite CSV with header and baseline data
-          with open("bme280_flight_log.csv", "w") as f:
+          with open(FLIGHT_LOG_FILE, "w") as f:
                f.write("elapsed_time,pressure_hPa_1,pressure_hPa_2,tempC_1,tempC_2,humidity_1,humidity_2\n")
                f.write(f"0.000000,{p1:.3f},{p2:.3f},{t1:.2f},{t2:.2f},{h1:.2f},{h2:.2f}\n")
           
           print(f"Baseline recorded: T1={t1:.2f}°C T2={t2:.2f}°C H1={h1:.2f}% H2={h2:.2f}%")
+          print(f"Logging to: {FLIGHT_LOG_FILE}")
           
           # Gracefully close I2C to free resources
           i2c.deinit()
@@ -59,7 +64,7 @@ def run_sensor(T0, event_q=None):
                b.filter = 0              # No filtering for speed
           
           # Append to existing CSV file (baseline already written by init_sensor)
-          with open("bme280_flight_log.csv", "a") as f:
+          with open(FLIGHT_LOG_FILE, "a") as f:
                count = 0
                buffer = []
 
