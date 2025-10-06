@@ -25,11 +25,12 @@ def init_sensor():
           t1, t2 = bme1.temperature, bme2.temperature
           p1, p2 = bme1.pressure, bme2.pressure
           h1, h2 = bme1.humidity, bme2.humidity
+          a1, a2 = bme1.altitude, bme2.altitude
           
           # Create/overwrite CSV with header and baseline data
           with open(FLIGHT_LOG_FILE, "w") as f:
-               f.write("elapsed_time,pressure_hPa_1,pressure_hPa_2,tempC_1,tempC_2,humidity_1,humidity_2\n")
-               f.write(f"0.000000,{p1:.3f},{p2:.3f},{t1:.2f},{t2:.2f},{h1:.2f},{h2:.2f}\n")
+               f.write("elapsed_time,pressure_hPa_1,pressure_hPa_2,tempC_1,tempC_2,humidity_1,humidity_2,altitude1,altitude2\n")
+               f.write(f"0.000000,{p1:.3f},{p2:.3f},{t1:.2f},{t2:.2f},{h1:.2f},{h2:.2f},{a1:.2f},{a2:.2f}\n")
           
           print(f"Baseline recorded: T1={t1:.2f}°C T2={t2:.2f}°C H1={h1:.2f}% H2={h2:.2f}%")
           print(f"Logging to: {FLIGHT_LOG_FILE}")
@@ -76,7 +77,7 @@ def run_sensor(T0, event_q=None):
                     p2 = bme2.pressure
 
                     # Build CSV line
-                    line = f"{elapsed:.6f},{p1:.3f},{p2:.3f},,,\n"
+                    line = f"{elapsed:.6f},{p1:.3f},{p2:.3f},,,,,\n"
                     buffer.append(line)
 
                     count += 1
