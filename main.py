@@ -45,10 +45,12 @@ def main():
                     event_q = mp.Queue()
                     procs.append(mp.Process(target=bne_sensor.dummy_print ))
                     procs.append(mp.Process(target=dual_sensor_logging.run_sensor , args = (t0,)))
+                    procs.append(mp.Process(target=dual_sensor_logging.start_recording, args=(dual_sensor_logging.CAMERA_VIDEO_FILE,)))
+                    procs.append(mp.Process(target=dual_sensor_logging.camera_activity_led, args=(dual_sensor_logging.CAMERA_VIDEO_FILE,dual_sensor_logging.CAMERA_LED_PIN,)))
                     for p in procs:
                          p.start()
                     print("Processes started")
-
+ 
                try:
                     all_alive = all(p.is_alive() for p in procs)
                     if not all_alive:
