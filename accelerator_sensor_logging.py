@@ -5,7 +5,6 @@ import csv
 from datetime import datetime
 import math
 
-ACCELERATOR_FLIGHT_LOG = f"accelerator_flight_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
 
 class ICM20600:
      def __init__(self, address=0x68, bus=0):
@@ -57,13 +56,15 @@ def record_acceleration_data(acc_file,T0):
                     line = f"{elapsed:.6f},{ax:.4f},{ay:.4f},{az:.4f},{gx:.4f},{gy:.4f},{gz:.4f}\n"
                     buffer.append(line)
 
-               if len(buffer) >= flush_every:
-                    f.writelines(buffer)
-                    f.flush()
-                    buffer.clear()
+                    if len(buffer) >= flush_every:
+                         f.writelines(buffer)
+                         f.flush()
+                         buffer.clear()
+
           except KeyboardInterrupt:
                print("\nStopped.")
 
 if __name__ == "__main__":
+     ACCELERATOR_FLIGHT_LOG = f"accelerator_flight_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
      start_time = time.monotonic()
      record_acceleration_data(ACCELERATOR_FLIGHT_LOG,start_time)

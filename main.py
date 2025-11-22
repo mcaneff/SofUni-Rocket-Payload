@@ -2,6 +2,7 @@ import multiprocessing as mp
 import bne_sensor
 import dual_sensor_logging
 import camera_module
+import accelerator_sensor_logging
 from fsm import State, Event, next_state
 from gpiozero import Button , LED
 import time
@@ -17,7 +18,7 @@ countDownTime = 0 # Time to wait until start sec)
 # Generate unique filename with timestamp
 FLIGHT_LOG_FILE = f"bme280_flight_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
 CAMERA_VIDEO_FILE = f"camera_flight_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.h264"
-
+ACCELERATOR_FLIGHT_LOG = f"accelerator_flight_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
 
 
 def init_and_check_sensors(state):
@@ -33,7 +34,8 @@ def init_and_check_sensors(state):
 def start_processes(t0):
     return {
         "camera": mp.Process(target=camera_module.start_recording, args=(CAMERA_VIDEO_FILE, t0)),
-        "sensor": mp.Process(target=dual_sensor_logging.run_sensor, args=(t0,))
+        "sensor": mp.Process(target=dual_sensor_logging.run_sensor, args=(t0,)),
+        "imu": mp.Process(target=accelerator_sensor_logging.record_acceleration_data, args=(ACCELERATOR_FLIGHT_LOG, t0))
     }
 
 def start_process(role, t0):
@@ -41,12 +43,15 @@ def start_process(role, t0):
           return mp.Process(target=camera_module.start_recording, args=(CAMERA_VIDEO_FILE, t0))
      elif role == "sensor":
           return mp.Process(target=dual_sensor_logging.run_sensor, args=(t0,))
+     elif role == "imu":
+          return mp.Process(target=accelerator_sensor_logging.record_acceleration_data, args=(ACCELERATOR_FLIGHT_LOG, t0))
 
 def main():
      state = State.BOOT
      procs = {
           "camera": None,
-          "sensor": None
+          "sensor": None,
+          "imu": None
      }
      print(f"State: {state}")
      t0 = time.monotonic()
