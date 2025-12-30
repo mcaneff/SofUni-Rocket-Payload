@@ -3,10 +3,18 @@ import board
 import busio
 import adafruit_bme280.advanced as adafruit_bme280
 from datetime import datetime
+from numba import njit
+from math import sqrt
 
 # Generate unique filename with timestamp
 FLIGHT_LOG_FILE = f"bme280_flight_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
 
+@njit
+def calculate_airspeed(p_total, p_static, rho=1.225):
+     delta_p = (p_total - p_static)*100
+     if delta_p <= 0:
+          return 0
+     return sqrt((2 * delta_p)/rho)
 
 def init_sensor():
      try:
@@ -27,6 +35,9 @@ def init_sensor():
           h1, h2 = bme1.humidity, bme2.humidity
           a1, a2 = bme1.altitude, bme2.altitude
           
+          # Compile numba function before running sensor
+          _ = calculate_airspeed(101325.0, 101320.0)
+
           # Create/overwrite CSV with header and baseline data
           with open(FLIGHT_LOG_FILE, "w") as f:
                f.write("elapsed_time,pressure_hPa_1,pressure_hPa_2,tempC_1,tempC_2,humidity_1,humidity_2,altitude1,altitude2\n")
@@ -51,7 +62,7 @@ def init_sensor():
           return None
 
 
-def run_sensor(T0, event_q=None):
+def run_sensor(T0, shared_data, event_q=None):
      try:
           # Initialize sensors
           i2c = busio.I2C(board.SCL, board.SDA)
@@ -75,6 +86,11 @@ def run_sensor(T0, event_q=None):
                     # Read pressure only (fastest possible)
                     p1 = bme1.pressure
                     p2 = bme2.pressure
+                    airspeed = calculate_airspeed(p1,p2)
+
+                    shared_data[0] = p1
+                    shared_data[1] = p2
+                    shared_data[2] = airspeed
 
                     # Build CSV line
                     line = f"{elapsed:.6f},{p1:.3f},{p2:.3f},,,,,\n"

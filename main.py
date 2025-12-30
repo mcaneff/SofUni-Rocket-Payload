@@ -38,18 +38,18 @@ def init_and_check_sensors(state):
           print("Sensor failed →", state)
      return state
 
-def start_processes(t0):
+def start_processes(t0, shared_data):
     return {
-        "camera": mp.Process(target=camera_module.start_recording, args=(CAMERA_VIDEO_FILE, t0)),
-        "sensor": mp.Process(target=dual_sensor_logging.run_sensor, args=(t0,)),
+        "camera": mp.Process(target=camera_module.start_recording, args=(CAMERA_VIDEO_FILE, t0, shared_data)),
+        "sensor": mp.Process(target=dual_sensor_logging.run_sensor, args=(t0,shared_data)),
         "imu": mp.Process(target=accelerator_sensor_logging.record_acceleration_data, args=(ACCELERATOR_FLIGHT_LOG, t0))
     }
 
-def start_process(role, t0):
+def start_process(role, t0, shared_data):
      if role == "camera":
-          return mp.Process(target=camera_module.start_recording, args=(CAMERA_VIDEO_FILE, t0))
+          return mp.Process(target=camera_module.start_recording, args=(CAMERA_VIDEO_FILE, t0, shared_data))
      elif role == "sensor":
-          return mp.Process(target=dual_sensor_logging.run_sensor, args=(t0,))
+          return mp.Process(target=dual_sensor_logging.run_sensor, args=(t0, shared_data))
      elif role == "imu":
           return mp.Process(target=accelerator_sensor_logging.record_acceleration_data, args=(ACCELERATOR_FLIGHT_LOG, t0))
 
@@ -75,6 +75,8 @@ def main():
                if state == State.BOOT:
                     state = init_and_check_sensors(state)
                     HEARTBEAT_LED.off()
+                    # Create shared memory array for pressure data
+                    pressure_data = mp.Array('f', [0.0,0.0,0.0])
                # video config here
                elif state == State.PRIMED:
                     last_blink_time = time.monotonic()
@@ -94,7 +96,7 @@ def main():
 
                     # Start processes if not running
                     if not all(procs.values()):  # at least one None
-                         procs = start_processes(t0)
+                         procs = start_processes(t0, pressure_data)
                          for name, p in procs.items():
                               p.start()
                               print(f"Started {name} process (PID {p.pid})")
@@ -104,7 +106,7 @@ def main():
                     for name, p in list(procs.items()):
                          if not p.is_alive() and time.monotonic() - last_restart[name] > 2:
                               print(f"[ERROR] {name} process died → restarting...")
-                              new_p = start_process(name, t0)
+                              new_p = start_process(name, t0, pressure_data)
                               new_p.start()
                               procs[name] = new_p
                               last_restart[name] = time.monotonic()
