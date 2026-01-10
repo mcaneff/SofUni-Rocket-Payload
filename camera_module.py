@@ -5,6 +5,7 @@ import busio
 from datetime import datetime
 from picamera2.encoders import H264Encoder, Quality
 from picamera2 import Picamera2, MappedArray
+from picamera2.outputs import PyavOutput
 from gpiozero import LED
 import os
 from pathlib import Path
@@ -30,18 +31,25 @@ def apply_timestamp(shared_value, request):
 def start_recording(video_file, t0, pressure_data):
      picam2 = Picamera2()
      h264_encoder = H264Encoder()
+     lores_encoder = H264Encoder(bitrate=800000, profile='baseline')
      try:
-          # Configure once
-          video_config = picam2.create_video_configuration(main={"size": (1920, 1080), "format": "XBGR8888" }, transform=Transform(hflip=1, vflip=1))
+          # Setup the RTSP output for MediaMTX
+          stream_output = PyavOutput("rtsp://127.0.0.1:8554/cam",format="rtsp")
+
+          # Configure camera with 1080p for SD card save and lores for streaming
+          video_config = picam2.create_video_configuration(main={"size": (1920, 1080), "format": "XBGR8888" },
+          lores={"size": (400, 240), "format":"YUV420"},
+          transform=Transform(hflip=1, vflip=1))
           picam2.video_configuration.controls.FrameRate = 30
           picam2.configure(video_config)
 
-          #picam2.pre_callback = apply_timestamp
+          # Add the callback function to run on every frame
           picam2.pre_callback = partial(apply_timestamp, pressure_data)
 
           # Start recording once
           print(f"[CAMERA] Starting recording to {video_file}")
           picam2.start_recording(h264_encoder, video_file, quality=Quality.VERY_HIGH)
+          picam2.start_recording(lores_encoder, stream_output, name="lores")
 
           # Run until stop signal (for now, fixed duration)
           while True:
@@ -57,13 +65,6 @@ def start_recording(video_file, t0, pressure_data):
           except Exception as e:
                print(f"Error while stopping: {e}")
           picam2.close()
-
-def check_file_size(file_path):
-     if file_path.exists():
-          return file_path.stat().st_size
-     else:
-          print("File doesn't exist")
-          return 0
 
 
 if __name__ == "__main__":
