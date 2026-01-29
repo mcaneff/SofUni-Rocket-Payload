@@ -11,9 +11,7 @@ FLIGHT_LOG_FILE = f"bme280_flight_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}
 
 @njit
 def calculate_airspeed(p_total, p_static, rho=1.225):
-     delta_p = (p_total - p_static)*100
-     if delta_p <= 0:
-          return 0
+     delta_p = abs((p_total - p_static)*100)
      return sqrt((2 * delta_p)/rho)
 
 def init_sensor():

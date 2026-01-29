@@ -12,7 +12,7 @@ import signal
 
 # Setup GPIO17 as input (BCM numbering)
 go_signal = Button(26, pull_up=False, bounce_time=0.05)
-HEARTBEAT_LED = LED(27)
+HEARTBEAT_LED = LED(17)
 HEARTBEAT_LED_FREQ = 0.5
 countDownTime = 0 # Time to wait until start sec)
 
