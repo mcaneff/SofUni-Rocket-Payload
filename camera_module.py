@@ -8,24 +8,36 @@ import cv2
 from libcamera import Transform
 from functools import partial
 
+WIDTH = 1920
+HEIGHT = 1080
+lores_WIDTH = 1280
+lores_HEIGHT = 720
 colour = (0, 255, 0)
-origin = (0, 30)
+origin_tl = (0, 30)
+origin_bl = (10,HEIGHT-10)
+origin_lores = (5,lores_HEIGHT-5)
 font = cv2.FONT_HERSHEY_SIMPLEX
 scale = 1
 thickness = 2
+colour_lores = 255
 
-def apply_timestamp(shared_value, request):
+def apply_timestamp(shared_value, T0, request):
      """
      Apply a function an every incoming frame from the picam.
      shared_value is a python list of the shared memory between processes.
      """
-     timestamp = time.strftime("%Y-%m-%d %X")
+     #timestamp = time.strftime("%Y-%m-%d %X")
+     elapsed_time = time.monotonic() - T0
      total_pressue = shared_value[0]
      static_pressue = shared_value[1]
      airspeed = shared_value[2]
-     text = f"{timestamp} | Static: {static_pressue:.1f} Total: {total_pressue:.1f} | Airspeed: {airspeed:.1f}"
+     text = f"T+ {elapsed_time:.1f}s | Static: {static_pressue:.1f} Total: {total_pressue:.1f} | Airspeed: {airspeed:.1f}"
      with MappedArray(request, "main") as m:
-          cv2.putText(m.array,text,origin,font,scale,colour,thickness)
+          cv2.putText(m.array,text,origin_bl,font,scale,colour,thickness)
+     
+     with MappedArray(request, "lores") as m:
+          y_plane = m.array[0:lores_HEIGHT,0:lores_WIDTH]
+          cv2.putText(y_plane,text,origin_lores,font,scale,colour_lores,thickness)
 
 def check_mediamtx(host="127.0.0.1", port=8554):
      """
@@ -49,14 +61,15 @@ def start_recording(video_file, t0, pressure_data):
           #stream_output = PyavOutput("rtsp://127.0.0.1:8554/cam",format="rtsp")
 
           # Configure camera with 1080p for SD card save and lores for streaming
-          video_config = picam2.create_video_configuration(main={"size": (1920, 1080), "format": "XBGR8888" },
-          lores={"size": (400, 240)},
+          video_config = picam2.create_video_configuration(main={"size": (WIDTH, HEIGHT), "format": "XBGR8888" },
+          lores={"size": (1280, 720),"format": "YUV420"},
           transform=Transform(hflip=1, vflip=1))
-          picam2.video_configuration.controls.FrameRate = 30
+          picam2.video_configuration.controls.FrameRate = 27
           picam2.configure(video_config)
 
           # Add the callback function to run on every frame
-          picam2.pre_callback = partial(apply_timestamp, pressure_data)
+          initial_time = time.monotonic()
+          picam2.pre_callback = partial(apply_timestamp, pressure_data, initial_time)
 
           # Start recording once
           print(f"[CAMERA] Starting recording to {video_file}")
@@ -71,7 +84,7 @@ def start_recording(video_file, t0, pressure_data):
                          print("[CAMERA] MediaMTX detected. Starting stream...")
                          try:
                               stream_output = PyavOutput("rtsp://127.0.0.1:8554/cam",format="rtsp")
-                              picam2.start_recording(stream_encoder, stream_output, quality=Quality.LOW)
+                              picam2.start_recording(stream_encoder, stream_output, name="lores")
                               stream_active = True
                          except Exception as e:
                               print(f"[CAMERA] Failed to attach stream to MediaMTX.: {e}")

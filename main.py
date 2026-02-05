@@ -29,27 +29,27 @@ def service_shutdown(signum, frame):
     raise ServiceExit
 
 def init_and_check_sensors(state):
-     sensors = dual_sensor_logging.init_sensor()
+     sensors, sensors_offset = dual_sensor_logging.init_sensor()
      if sensors is not None:
           state = next_state(state, Event.INIT_DONE)
           print("Sensor alive →", state)
      else:
           state = next_state(state, Event.ERROR)
           print("Sensor failed →", state)
-     return state
+     return state, sensors_offset
 
-def start_processes(t0, shared_data):
+def start_processes(t0, shared_data,pressure_offset):
     return {
         "camera": mp.Process(target=camera_module.start_recording, args=(CAMERA_VIDEO_FILE, t0, shared_data)),
-        "sensor": mp.Process(target=dual_sensor_logging.run_sensor, args=(t0,shared_data)),
+        "sensor": mp.Process(target=dual_sensor_logging.run_sensor, args=(t0,shared_data,pressure_offset)),
         "imu": mp.Process(target=accelerator_sensor_logging.record_acceleration_data, args=(ACCELERATOR_FLIGHT_LOG, t0))
     }
 
-def start_process(role, t0, shared_data):
+def start_process(role, t0, shared_data,pressure_offset):
      if role == "camera":
           return mp.Process(target=camera_module.start_recording, args=(CAMERA_VIDEO_FILE, t0, shared_data))
      elif role == "sensor":
-          return mp.Process(target=dual_sensor_logging.run_sensor, args=(t0, shared_data))
+          return mp.Process(target=dual_sensor_logging.run_sensor, args=(t0, shared_data,pressure_offset))
      elif role == "imu":
           return mp.Process(target=accelerator_sensor_logging.record_acceleration_data, args=(ACCELERATOR_FLIGHT_LOG, t0))
 
@@ -69,11 +69,12 @@ def main():
      led_on = False
      last_blink_time = time.monotonic()
      running = True
+     sensors_offset = 0.0
 
      try:
           while running:
                if state == State.BOOT:
-                    state = init_and_check_sensors(state)
+                    state, sensors_offset = init_and_check_sensors(state)
                     HEARTBEAT_LED.off()
                     # Create shared memory array for pressure data
                     pressure_data = mp.Array('f', [0.0,0.0,0.0])
@@ -96,7 +97,7 @@ def main():
 
                     # Start processes if not running
                     if not all(procs.values()):  # at least one None
-                         procs = start_processes(t0, pressure_data)
+                         procs = start_processes(t0, pressure_data,sensors_offset)
                          for name, p in procs.items():
                               p.start()
                               print(f"Started {name} process (PID {p.pid})")
@@ -106,7 +107,7 @@ def main():
                     for name, p in list(procs.items()):
                          if not p.is_alive() and time.monotonic() - last_restart[name] > 2:
                               print(f"[ERROR] {name} process died → restarting...")
-                              new_p = start_process(name, t0, pressure_data)
+                              new_p = start_process(name, t0, pressure_data,sensors_offset)
                               new_p.start()
                               procs[name] = new_p
                               last_restart[name] = time.monotonic()
