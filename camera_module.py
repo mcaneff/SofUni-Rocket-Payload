@@ -5,7 +5,7 @@ from picamera2 import Picamera2, MappedArray
 from picamera2.outputs import PyavOutput
 import os
 import cv2
-from libcamera import Transform
+from libcamera import Transform, controls
 from functools import partial
 
 font = cv2.FONT_HERSHEY_SIMPLEX
@@ -91,6 +91,7 @@ def start_recording(video_file, t0, pressure_data):
           transform=Transform(hflip=1, vflip=1))
           picam2.video_configuration.controls.FrameRate = 27
           picam2.configure(video_config)
+          picam2.set_controls({"AfMode": controls.AfModeEnum.Manual, "LensPosition": 0.0})
 
           # Add the callback function to run on every frame
           initial_time = time.monotonic()
