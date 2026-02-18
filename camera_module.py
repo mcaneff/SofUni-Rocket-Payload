@@ -8,18 +8,27 @@ import cv2
 from libcamera import Transform
 from functools import partial
 
+font = cv2.FONT_HERSHEY_SIMPLEX
+# Main video configuration
 WIDTH = 1920
 HEIGHT = 1080
+colour = (0, 255, 0) 
+origin_tl = (0, 30) # top left origin
+origin_main = (10,HEIGHT-10) # bottom left origin
+font_scale_main = 1
+thickness_main = 2
+padding_main = 5
+
+# Lores stream configuration
 lores_WIDTH = 1280
 lores_HEIGHT = 720
-colour = (0, 255, 0)
-origin_tl = (0, 30)
-origin_bl = (10,HEIGHT-10)
-origin_lores = (5,lores_HEIGHT-5)
-font = cv2.FONT_HERSHEY_SIMPLEX
-scale = 1
-thickness = 2
-colour_lores = 255
+origin_lores = (10,lores_HEIGHT-10) # origin of text
+font_scale_lores = 0.4
+thickness_lores = 1
+colour_lores = 255 # white colour of text
+colour_bg_lores = 50 # background rectangle colour
+padding_lores = 5 # pixels padding
+
 
 def apply_timestamp(shared_value, T0, request):
      """
@@ -32,12 +41,28 @@ def apply_timestamp(shared_value, T0, request):
      static_pressue = shared_value[1]
      airspeed = shared_value[2]
      text = f"T+ {elapsed_time:.1f}s | Static: {static_pressue:.1f} Total: {total_pressue:.1f} | Airspeed: {airspeed:.1f}"
+
+     # Formatting commands for dashboard
+     (text_width_lores, text_height_lores), baseline_lores = cv2.getTextSize(text,font, font_scale_lores, thickness_lores)
+     (text_width_main, text_height_main), baseline_main = cv2.getTextSize(text,font, font_scale_main, thickness_main)
+
+     box_tl_lores = (0,origin_lores[1]-text_height_lores-padding_lores)
+     box_br_lores = (origin_lores[0]+text_width_lores+padding_lores,origin_lores[1]+baseline_lores+padding_lores)
+
+     box_tl_main = (0,origin_main[1]-text_height_main-padding_main)
+     box_br_main = (origin_main[0]+text_width_main+padding_main,origin_main[1]+baseline_main+padding_main)
+
+
      with MappedArray(request, "main") as m:
-          cv2.putText(m.array,text,origin_bl,font,scale,colour,thickness)
+          cv2.rectangle(m.array,box_tl_main, box_br_main, colour_bg_lores, -1)
+          cv2.rectangle(m.array,box_tl_main, box_br_main, colour, 2)
+          cv2.putText(m.array,text,origin_main,font,font_scale_main,colour,thickness_main)
      
      with MappedArray(request, "lores") as m:
           y_plane = m.array[0:lores_HEIGHT,0:lores_WIDTH]
-          cv2.putText(y_plane,text,origin_lores,font,scale,colour_lores,thickness)
+          cv2.rectangle(y_plane, box_tl_lores, box_br_lores, colour_bg_lores, -1)
+          cv2.rectangle(y_plane, box_tl_lores, box_br_lores, colour_lores, 2)
+          cv2.putText(y_plane,text,origin_lores,font,font_scale_lores,colour_lores,thickness_lores)
 
 def check_mediamtx(host="127.0.0.1", port=8554):
      """
@@ -55,14 +80,14 @@ def check_mediamtx(host="127.0.0.1", port=8554):
 def start_recording(video_file, t0, pressure_data):
      picam2 = Picamera2()
      h264_encoder = H264Encoder()
-     stream_encoder = H264Encoder(bitrate=800000, profile='baseline')
+     stream_encoder = H264Encoder( profile='baseline') #,iperiod=10,repeat=True,framerate=20bitrate=2500000,
      try:
           # Setup the RTSP output for MediaMTX
           #stream_output = PyavOutput("rtsp://127.0.0.1:8554/cam",format="rtsp")
 
           # Configure camera with 1080p for SD card save and lores for streaming
           video_config = picam2.create_video_configuration(main={"size": (WIDTH, HEIGHT), "format": "XBGR8888" },
-          lores={"size": (1280, 720),"format": "YUV420"},
+          lores={"size": (lores_WIDTH, lores_HEIGHT),"format": "YUV420"},
           transform=Transform(hflip=1, vflip=1))
           picam2.video_configuration.controls.FrameRate = 27
           picam2.configure(video_config)
